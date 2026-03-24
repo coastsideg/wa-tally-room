@@ -22,6 +22,8 @@ export default function MapPage() {
   const [booths, setBooths] = useState([]);
   const [mapReady, setMapReady] = useState(false);
   const [colorBy, setColorBy] = useState("party"); // party or margin
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
 
   // Load districts
   useEffect(() => {
@@ -199,39 +201,114 @@ export default function MapPage() {
     });
   }, [booths, showBooths, mapReady]);
 
-  // Find electorate by address (using browser geolocation or simple point-in-polygon)
-  const findMyElectorate = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((pos) => {
-      const { latitude, longitude } = pos.coords;
-      if (mapInstance.current) {
-        const L = window.L;
-        mapInstance.current.setView([latitude, longitude], 14);
+  // Proper point-in-polygon using ray casting
+  const pointInPolygon = (lat, lng, polygon) => {
+    // polygon is an array of [lng, lat] coordinate rings
+    const testRing = (ring) => {
+      let inside = false;
+      for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+        const xi = ring[i][1], yi = ring[i][0]; // lat, lng
+        const xj = ring[j][1], yj = ring[j][0];
+        const intersect = ((yi > lng) !== (yj > lng)) &&
+          (lat < (xj - xi) * (lng - yi) / (yj - yi) + xi);
+        if (intersect) inside = !inside;
+      }
+      return inside;
+    };
+    return testRing(polygon);
+  };
 
-        // Remove old marker
-        if (userMarker) userMarker.remove();
-
-        const marker = L.marker([latitude, longitude], {
-          icon: L.divIcon({
-            html: '<div style="width:14px;height:14px;background:#F59E0B;border:3px solid #020617;border-radius:50%;"></div>',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7],
-          }),
-        }).addTo(mapInstance.current);
-        setUserMarker(marker);
-
-        // Find which district this point falls in
-        if (geoLayerRef.current) {
-          const point = L.latLng(latitude, longitude);
-          geoLayerRef.current.eachLayer((layer) => {
-            if (layer.getBounds().contains(point)) {
-              // Simple bounding box check - good enough for most cases
-              setSelected(layer.feature.properties.Name);
-            }
-          });
+  const findDistrictForPoint = (lat, lng) => {
+    if (!geojson) return null;
+    for (const feature of geojson.features) {
+      const geom = feature.geometry;
+      const coords = geom.coordinates;
+      if (geom.type === "Polygon") {
+        if (pointInPolygon(lat, lng, coords[0])) return feature.properties.Name;
+      } else if (geom.type === "MultiPolygon") {
+        for (const poly of coords) {
+          if (pointInPolygon(lat, lng, poly[0])) return feature.properties.Name;
         }
       }
-    });
+    }
+    return null;
+  };
+
+  const placeMarkerAndFind = (lat, lng) => {
+    if (!mapInstance.current) return;
+    const L = window.L;
+    mapInstance.current.setView([lat, lng], 14);
+
+    if (userMarker) userMarker.remove();
+    const marker = L.marker([lat, lng], {
+      icon: L.divIcon({
+        html: '<div style="width:14px;height:14px;background:#F59E0B;border:3px solid #020617;border-radius:50%;box-shadow:0 0 8px rgba(245,158,11,0.5);"></div>',
+        iconSize: [14, 14],
+        iconAnchor: [7, 7],
+      }),
+    }).addTo(mapInstance.current);
+    setUserMarker(marker);
+
+    const districtName = findDistrictForPoint(lat, lng);
+    if (districtName) {
+      setSelected(districtName);
+      if (showBooths) loadBooths(districtName);
+    } else {
+      setSearchError("Location is outside WA electoral boundaries");
+    }
+  };
+
+  // GPS geolocation
+  const findMyElectorate = () => {
+    if (!navigator.geolocation) {
+      setSearchError("Geolocation not available in your browser");
+      return;
+    }
+    setSearchError("");
+    setSearching(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        placeMarkerAndFind(pos.coords.latitude, pos.coords.longitude);
+        setSearching(false);
+      },
+      (err) => {
+        setSearchError("Could not get your location. Try entering an address instead.");
+        setSearching(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Address search via Nominatim
+  const searchAddress = async (e) => {
+    e.preventDefault();
+    if (!searchAddr.trim()) return;
+    setSearchError("");
+    setSearching(true);
+
+    try {
+      const query = searchAddr.includes("WA") || searchAddr.includes("Western Australia")
+        ? searchAddr
+        : `${searchAddr}, Western Australia, Australia`;
+
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=1&countrycodes=au`,
+        { headers: { "User-Agent": "WATallyRoom/1.0" } }
+      );
+      const results = await res.json();
+
+      if (results.length === 0) {
+        setSearchError("Address not found. Try adding suburb or postcode.");
+        setSearching(false);
+        return;
+      }
+
+      const { lat, lon } = results[0];
+      placeMarkerAndFind(parseFloat(lat), parseFloat(lon));
+    } catch (err) {
+      setSearchError("Search failed. Check your connection and try again.");
+    }
+    setSearching(false);
   };
 
   const selectedDistrict = districtMap[selected];
@@ -259,16 +336,57 @@ export default function MapPage() {
 
         {/* Controls */}
         <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-          <button onClick={findMyElectorate} style={{
+          {/* Address search */}
+          <form onSubmit={searchAddress} style={{ marginBottom: 8 }}>
+            <div style={{ display: "flex", gap: 4 }}>
+              <input
+                type="text" value={searchAddr}
+                onChange={e => { setSearchAddr(e.target.value); setSearchError(""); }}
+                placeholder="Enter address, suburb or postcode..."
+                style={{
+                  flex: 1, padding: "8px 10px", fontSize: 12,
+                  background: "var(--bg-base)", border: "1px solid var(--border)",
+                  borderRadius: 4, color: "var(--text-secondary)", outline: "none",
+                  fontFamily: "var(--font-body)",
+                }}
+                onFocus={e => e.target.style.borderColor = "var(--border-bright)"}
+                onBlur={e => e.target.style.borderColor = "var(--border)"}
+              />
+              <button type="submit" disabled={searching} style={{
+                padding: "8px 12px", fontSize: 12, fontWeight: 600,
+                background: "var(--accent-amber)", color: "#020617",
+                borderRadius: 4, border: "none",
+                cursor: searching ? "wait" : "pointer",
+                opacity: searching ? 0.6 : 1,
+                whiteSpace: "nowrap",
+              }}>
+                {searching ? "..." : "Go"}
+              </button>
+            </div>
+          </form>
+
+          {searchError && (
+            <div style={{
+              fontSize: 10, color: "#FCA5A5", marginBottom: 8,
+              padding: "6px 8px", background: "rgba(185,28,28,0.1)",
+              borderRadius: 3, border: "1px solid rgba(185,28,28,0.2)",
+            }}>
+              {searchError}
+            </div>
+          )}
+
+          <button onClick={findMyElectorate} disabled={searching} style={{
             width: "100%", padding: "8px 12px", fontSize: 12, fontWeight: 600,
             background: "var(--bg-elevated)", color: "var(--accent-amber)",
             borderRadius: 4, border: "1px solid var(--border)",
             marginBottom: 8, transition: "all 0.15s",
+            opacity: searching ? 0.6 : 1,
+            cursor: searching ? "wait" : "pointer",
           }}
-            onMouseEnter={e => e.currentTarget.style.background = "var(--border)"}
+            onMouseEnter={e => { if (!searching) e.currentTarget.style.background = "var(--border)"; }}
             onMouseLeave={e => e.currentTarget.style.background = "var(--bg-elevated)"}
           >
-            📍 Find My Electorate
+            {searching ? "Locating..." : "📍 Use My Location"}
           </button>
 
           <div style={{ display: "flex", gap: 4, marginBottom: 8 }}>
