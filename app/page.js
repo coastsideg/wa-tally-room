@@ -1,6 +1,4 @@
-"use client";
-import TallyRoom from "./tally-room";
-
-export default function Page() {
-  return <TallyRoom />;
+import { redirect } from "next/navigation";
+export default function Home() {
+  redirect("/dashboard");
 }

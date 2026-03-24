@@ -1,0 +1,76 @@
+/* WA Tally Room — Global Styles */
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  --bg-base: #020617;
+  --bg-surface: #0F172A;
+  --bg-elevated: #1E293B;
+  --bg-hover: #1E293B;
+  --border: #1E293B;
+  --border-bright: #334155;
+  --text-primary: #F8FAFC;
+  --text-secondary: #E2E8F0;
+  --text-muted: #94A3B8;
+  --text-dim: #64748B;
+  --text-faint: #475569;
+  --text-ghost: #334155;
+  --accent-amber: #F59E0B;
+  --accent-red: #B91C1C;
+  --font-mono: 'JetBrains Mono', monospace;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --alp: #B91C1C;
+  --lib: #1D4ED8;
+  --nat: #15803D;
+  --grn: #16A34A;
+  --phon: #EA580C;
+  --ind: #6B7280;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body { 
+  min-height: 100vh; 
+  background: var(--bg-base); 
+  color: var(--text-secondary); 
+  font-family: var(--font-body);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-base); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+/* Focus */
+:focus-visible { outline: 2px solid var(--accent-amber); outline-offset: 2px; }
+
+/* Inputs */
+input, select, textarea {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 13px;
+  padding: 8px 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus, select:focus, textarea:focus {
+  border-color: var(--border-bright);
+}
+
+/* Buttons */
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+/* Links */
+a { color: var(--text-muted); text-decoration: none; }
+a:hover { color: var(--text-primary); }
+
+/* Utility */
+.mono { font-family: var(--font-mono); }
