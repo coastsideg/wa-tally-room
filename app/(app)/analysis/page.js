@@ -212,18 +212,26 @@ export default function AnalysisPage() {
       <div style={{ display: "flex", gap: 12, marginBottom: 16, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 11, color: "var(--text-dim)" }}>Comparing</span>
-          <select value={currentYear} onChange={e => setCurrentYear(parseInt(e.target.value))}
+          <select value={currentYear} onChange={e => { const y = parseInt(e.target.value); setCurrentYear(y); if (y === compareYear) setCompareYear(y === 2017 ? 2021 : 2017); }}
             style={{ fontSize: 12, padding: "5px 8px", fontFamily: "var(--font-mono)" }}>
             <option value={2025}>2025</option>
             <option value={2021}>2021</option>
+            <option value={2017}>2017</option>
           </select>
           <span style={{ fontSize: 11, color: "var(--text-dim)" }}>vs</span>
           <select value={compareYear} onChange={e => setCompareYear(parseInt(e.target.value))}
             style={{ fontSize: 12, padding: "5px 8px", fontFamily: "var(--font-mono)" }}>
-            <option value={2021}>2021</option>
-            <option value={2017}>2017</option>
+            {[2025, 2021, 2017].filter(y => y !== currentYear).map(y => (
+              <option key={y} value={y}>{y}</option>
+            ))}
           </select>
         </div>
+
+        {!loading && districtSwings.length > 0 && districtSwings.length < 59 && (
+          <span style={{ fontSize: 10, color: "var(--accent-amber)", fontFamily: "var(--font-mono)" }}>
+            {districtSwings.length}/59 districts matched (boundary changes exclude {59 - districtSwings.length})
+          </span>
+        )}
 
         {/* Tabs */}
         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 4, overflow: "hidden", marginLeft: "auto" }}>
