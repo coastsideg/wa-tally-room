@@ -109,7 +109,16 @@ export default function MapPage() {
         layer.on({
           mouseover: (e) => { e.target.setStyle({ weight: 3, color: "#F8FAFC", fillOpacity: 0.65 }); e.target.bringToFront(); },
           mouseout: (e) => { if (selectedState !== name) stateLayerRef.current?.resetStyle(e.target); },
-          click: () => { setSelectedState(name); if (showBooths) loadBooths(name); },
+          click: (e) => {
+            setSelectedState(name);
+            if (showBooths) loadBooths(name);
+            // Also find federal electorate at this click point
+            if (fedGeo) {
+              const lat = e.latlng.lat, lng = e.latlng.lng;
+              const fedName = findDistrictForPoint(lat, lng, fedGeo);
+              if (fedName) setSelectedFed(fedName);
+            }
+          },
         });
         const tip = d ? `<strong>State: ${name}</strong><br/>${d.incumbent_party} +${Number(d.margin_2025).toFixed(1)}%` : `State: ${name}`;
         layer.bindTooltip(tip, { sticky: true, className: "map-tooltip" });
@@ -128,8 +137,8 @@ export default function MapPage() {
 
     const layer = L.geoJSON(fedGeo, {
       style: () => ({
-        fillColor: "transparent",
-        fillOpacity: 0,
+        fillColor: mapLayer === "federal" ? "#F59E0B" : "transparent",
+        fillOpacity: mapLayer === "federal" ? 0.2 : 0,
         color: "#F59E0B",
         weight: mapLayer === "both" ? 3 : 2,
         opacity: 0.8,
