@@ -7,7 +7,6 @@ import { useAuth } from "./auth-provider";
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Dashboard", icon: "◉", desc: "Election results" },
   { href: "/districts", label: "Districts", icon: "▦", desc: "Booth-level data" },
-  { href: "/analysis", label: "Analysis", icon: "△", desc: "Swings & trends" },
   { href: "/map", label: "Map", icon: "◎", desc: "Find your electorate" },
   { href: "/entry", label: "Data Entry", icon: "✎", desc: "Scrutineer input" },
   { href: "/admin", label: "Admin", icon: "⚙", desc: "System settings" },
